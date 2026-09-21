@@ -1,0 +1,17 @@
+# Go
+api/tmp/
+
+# Runtime data (JSON storage, secrets, uploaded attachments)
+api/data/*
+!api/data/.gitkeep
+
+# Node / Vite
+web/node_modules/
+web/dist/
+
+# Env
+.env
+
+# OS
+.DS_Store
+Thumbs.db

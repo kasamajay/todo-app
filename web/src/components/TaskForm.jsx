@@ -1,0 +1,87 @@
+import { useState } from 'react'
+import Modal from './common/Modal.jsx'
+import TextField from './common/TextField.jsx'
+import Button from './common/Button.jsx'
+import AttachmentUploader from './AttachmentUploader.jsx'
+import { colors, labelStyle, inputStyle } from '../theme.js'
+
+const STATUS_OPTIONS = [
+  { value: 'todo', label: 'To do' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'done', label: 'Done' },
+]
+
+export default function TaskForm({ task, onSave, onDelete, onClose }) {
+  const [title, setTitle] = useState(task?.title || '')
+  const [description, setDescription] = useState(task?.description || '')
+  const [status, setStatus] = useState(task?.status || 'todo')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setSaving(true)
+    try {
+      await onSave({ title, description, status })
+    } catch (err) {
+      setError(err.message || 'Failed to save task')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title={task ? 'Edit task' : 'New task'} onClose={onClose} width={540}>
+      <form onSubmit={handleSubmit}>
+        <TextField label="Title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Description</label>
+          <textarea
+            style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Status</label>
+          <select style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value)}>
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {error && <p style={{ color: colors.danger, fontSize: '13px' }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', marginTop: '8px' }}>
+          <div>
+            {task && onDelete && (
+              <Button type="button" variant="danger" onClick={() => onDelete(task)}>
+                Delete task
+              </Button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      {task && (
+        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}>
+          <AttachmentUploader taskId={task.id} />
+        </div>
+      )}
+    </Modal>
+  )
+}

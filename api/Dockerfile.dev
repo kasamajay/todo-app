@@ -1,0 +1,19 @@
+FROM golang:1.22
+
+WORKDIR /app
+
+# air is a dev-only hot-reload tool invoked as a separate binary - it is not
+# a module dependency, so go.mod stays stdlib-only. Pinned to a version that
+# still supports Go 1.22 (newer air releases require Go 1.26+).
+RUN go install github.com/air-verse/air@v1.52.3
+
+COPY go.mod ./
+RUN go mod download
+
+# Source is bind-mounted over this at runtime (see docker-compose.yml); the
+# COPY here just keeps the image buildable/runnable standalone.
+COPY . .
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]
