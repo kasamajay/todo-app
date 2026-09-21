@@ -22,7 +22,7 @@ sequenceDiagram
     end
 
     API->>PBKDF2: PBKDF2Key(password, salt, 100000, 64)
-    Note over API,PBKDF2: Always runs - found or not -\nso timing doesn't leak account existence
+    Note over API,PBKDF2: Always runs - found or not - so timing doesn't leak account existence
     PBKDF2-->>API: derived key
     API->>API: subtle.ConstantTimeCompare(derived, stored)
 
@@ -31,13 +31,13 @@ sequenceDiagram
     else account is locked (now < LockedUntil)
         API-->>Web: 403 account_locked
     else password mismatch
-        API->>Store: FailedLoginCount++\n(set LockedUntil if count >= 3)
+        API->>Store: FailedLoginCount++, set LockedUntil if count >= 3
         API-->>Web: 401 invalid_credentials
     else password matches
         API->>Store: reset FailedLoginCount, clear LockedUntil
         API->>API: auth.Mint(secret, claims{uid, adm, exp})
         API-->>Web: 200 {token, user}
-        Web->>Web: setToken(token); render boards view
+        Web->>Web: setToken(token), render boards view
     end
 ```
 
