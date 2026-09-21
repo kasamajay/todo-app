@@ -37,6 +37,10 @@ docker compose run --rm web npm run build
 
 There is no linter configured for either side beyond `go vet`.
 
+## Git workflow
+
+Never commit directly to `main`. For any change: create a branch, make and verify the change there, push the branch, and open a PR (`gh pr create`) — don't push straight to `main` and don't merge the PR automatically. This applies to every change in this repo, however small.
+
 ## Architecture
 
 ### Docker layer
