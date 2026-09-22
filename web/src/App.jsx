@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react'
-import { api, getToken, clearToken, onUnauthorized } from './api.js'
+import { api, getToken, setToken, clearToken, onUnauthorized } from './api.js'
 import { colors, fontFamily } from './theme.js'
 import Login from './components/Login.jsx'
 import BoardsList from './components/BoardsList.jsx'
 import Kanban from './components/Kanban.jsx'
 
+const GOOGLE_ERROR_MESSAGES = {
+  google_oauth_not_configured: 'Google sign-in is not configured on this server.',
+  google_denied: 'Google sign-in was cancelled.',
+  google_state_missing: 'Google sign-in session expired. Please try again.',
+  google_state_mismatch: 'Google sign-in session expired. Please try again.',
+  google_missing_code: 'Google sign-in did not complete. Please try again.',
+  google_exchange_failed: 'Could not reach Google. Please try again.',
+  google_userinfo_failed: 'Could not reach Google. Please try again.',
+  google_email_unverified: 'Your Google account email must be verified to sign in.',
+  google_account_locked: 'This account is locked. Try again later.',
+  google_internal_error: 'Something went wrong signing in with Google. Please try again.',
+}
+
 export default function App() {
   const [view, setView] = useState('loading') // loading | login | boards | kanban
   const [user, setUser] = useState(null)
   const [activeBoard, setActiveBoard] = useState(null)
+  const [googleError, setGoogleError] = useState('')
 
   useEffect(() => {
     onUnauthorized(() => {
@@ -16,6 +30,17 @@ export default function App() {
       setActiveBoard(null)
       setView('login')
     })
+
+    if (window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.slice(1))
+      const googleToken = params.get('google_token')
+      const errorCode = params.get('google_error')
+      if (googleToken) setToken(googleToken)
+      if (errorCode) setGoogleError(GOOGLE_ERROR_MESSAGES[errorCode] || 'Google sign-in failed. Please try again.')
+      if (googleToken || errorCode) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
 
     if (!getToken()) {
       setView('login')
@@ -69,7 +94,7 @@ export default function App() {
   }
 
   if (view === 'login') {
-    return <Login onSuccess={handleLoginSuccess} />
+    return <Login onSuccess={handleLoginSuccess} banner={googleError} />
   }
 
   if (view === 'boards') {

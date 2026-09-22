@@ -13,6 +13,7 @@ Lightweight architecture decision records (ADRs) for this project. Each file cap
 | [0007](0007-no-email-infra-reset-token-logged.md) | No email infrastructure — reset tokens are logged, not emailed |
 | [0008](0008-polling-for-windows-bind-mount-hotreload.md) | File-watch polling for hot reload under Docker Desktop on Windows |
 | [0009](0009-ngrok-for-public-exposure.md) | ngrok tunnel on the web container's port only |
+| [0010](0010-google-oauth-authorization-code-flow.md) | Google OAuth via the Authorization Code flow, not ID-token verification |
 
 To add a new one: copy the format below into a new numbered file and add a row to the table above.
 

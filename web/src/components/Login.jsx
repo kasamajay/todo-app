@@ -11,7 +11,7 @@ const MODES = {
   reset: { title: 'Set new password', submitLabel: 'Set new password' },
 }
 
-export default function Login({ onSuccess, defaultEmail = '', allowRegister = true, allowForgot = true }) {
+export default function Login({ onSuccess, defaultEmail = '', allowRegister = true, allowForgot = true, allowGoogle = true, banner = '' }) {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState(defaultEmail)
   const [password, setPassword] = useState('')
@@ -68,6 +68,8 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
         <h1 style={{ margin: '0 0 4px', fontSize: '22px', color: colors.brand }}>Todo App</h1>
         <p style={{ margin: '0 0 24px', color: colors.textMuted, fontSize: '14px' }}>{title}</p>
 
+        {banner && <p style={{ color: colors.danger, fontSize: '13px', marginTop: 0 }}>{banner}</p>}
+
         <form onSubmit={handleSubmit}>
           {mode !== 'reset' && (
             <TextField
@@ -112,6 +114,24 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
             {loading ? 'Please wait…' : submitLabel}
           </Button>
         </form>
+
+        {mode === 'login' && allowGoogle && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0' }}>
+              <div style={{ flex: 1, height: '1px', background: colors.border }} />
+              <span style={{ fontSize: '12px', color: colors.textMuted }}>or</span>
+              <div style={{ flex: 1, height: '1px', background: colors.border }} />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              style={{ width: '100%' }}
+              onClick={() => { window.location.href = '/api/auth/google/login' }}
+            >
+              Sign in with Google
+            </Button>
+          </>
+        )}
 
         <div style={{ marginTop: '18px', fontSize: '13px', color: colors.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {mode === 'login' && (

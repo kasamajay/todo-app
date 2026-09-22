@@ -39,3 +39,15 @@ func (s *UserStore) FindByResetToken(token string) (models.User, bool) {
 	}
 	return models.User{}, false
 }
+
+func (s *UserStore) FindByGoogleID(googleID string) (models.User, bool) {
+	if googleID == "" {
+		return models.User{}, false
+	}
+	for _, u := range s.List() {
+		if u.GoogleID == googleID {
+			return u, true
+		}
+	}
+	return models.User{}, false
+}
