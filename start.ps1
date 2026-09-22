@@ -59,8 +59,25 @@ if (-not $appReady) {
     Write-Host "Check 'docker compose logs web' - continuing to start the tunnel anyway." -ForegroundColor Yellow
 }
 
-Write-Host "Starting ngrok tunnel..." -ForegroundColor Cyan
-$ngrokProc = Start-Process -FilePath "ngrok" -ArgumentList "http", "$port" -PassThru -WindowStyle Hidden
+# NGROK_DOMAIN (optional, set in .env) pins the tunnel to a reserved static
+# ngrok domain instead of a random one each run - needed for Google sign-in
+# to work over the tunnel, since Google requires an exact, pre-registered
+# redirect URI. See README's "Public access via ngrok" section.
+$ngrokDomain = $null
+$envPath = Join-Path $root ".env"
+if (Test-Path $envPath) {
+    $match = Select-String -Path $envPath -Pattern '^NGROK_DOMAIN=(.+)$'
+    if ($match) { $ngrokDomain = $match.Matches[0].Groups[1].Value.Trim() }
+}
+
+if ($ngrokDomain) {
+    Write-Host "Starting ngrok tunnel on static domain $ngrokDomain..." -ForegroundColor Cyan
+    $ngrokArgs = @("http", "--domain=$ngrokDomain", "$port")
+} else {
+    Write-Host "Starting ngrok tunnel..." -ForegroundColor Cyan
+    $ngrokArgs = @("http", "$port")
+}
+$ngrokProc = Start-Process -FilePath "ngrok" -ArgumentList $ngrokArgs -PassThru -WindowStyle Hidden
 
 try {
     $publicUrl = $null

@@ -69,7 +69,30 @@ its own:
    running) to pick up the new env vars.
 
 This only works at `http://localhost:5173` out of the box, not automatically
-through an ngrok tunnel - see [`decisions/0010`](decisions/0010-google-oauth-authorization-code-flow.md).
+through an ngrok tunnel - see [`decisions/0010`](decisions/0010-google-oauth-authorization-code-flow.md)
+and the next section for how to make it work over ngrok too.
+
+### Google sign-in over ngrok
+
+ngrok's free tier normally hands out a new random URL every run, which can't
+be pre-registered with Google. Fix this once with a free static ngrok domain:
+
+1. https://dashboard.ngrok.com/domains → **+ Create Domain** (free accounts
+   get one static `<name>.ngrok-free.app` domain).
+2. Add `NGROK_DOMAIN=<name>.ngrok-free.app` to `.env`.
+3. In Google Cloud Console (Credentials → your OAuth client → Authorized
+   redirect URIs), add `https://<name>.ngrok-free.app/api/auth/google/callback`
+   (you can keep the `localhost:5173` one alongside it - Google allows
+   multiple).
+4. In `.env`, set:
+   ```
+   GOOGLE_REDIRECT_URI=https://<name>.ngrok-free.app/api/auth/google/callback
+   FRONTEND_BASE_URL=https://<name>.ngrok-free.app
+   ```
+5. `docker compose up -d api` (recreate, not just `restart` - Compose only
+   re-reads `.env` when a container is created, not on every restart) then
+   `.\start.ps1`. The printed public URL is now your static domain every
+   time. See [`decisions/0011`](decisions/0011-optional-ngrok-static-domain-for-google-oauth.md).
 
 ## Makefile / raw docker compose commands
 
