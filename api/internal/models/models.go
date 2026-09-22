@@ -13,7 +13,16 @@ type User struct {
 	LockedUntil       time.Time `json:"locked_until,omitempty"`
 	ResetToken        string    `json:"reset_token,omitempty"`
 	ResetTokenExpires time.Time `json:"reset_token_expires,omitempty"`
-	CreatedAt         time.Time `json:"created_at"`
+
+	// Two-factor auth: opt-in per account (see decisions/0011). TwoFactorCode
+	// et al. hold a pending login challenge and are cleared once verified,
+	// expired, or invalidated after too many wrong attempts.
+	TwoFactorEnabled     bool      `json:"two_factor_enabled"`
+	TwoFactorCode        string    `json:"two_factor_code,omitempty"`
+	TwoFactorCodeExpires time.Time `json:"two_factor_code_expires,omitempty"`
+	TwoFactorAttempts    int       `json:"two_factor_attempts,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Public is the user representation safe to send to clients (no secrets).
@@ -23,6 +32,7 @@ type PublicUser struct {
 	IsAdmin          bool      `json:"is_admin"`
 	FailedLoginCount int       `json:"failed_login_count"`
 	LockedUntil      time.Time `json:"locked_until,omitempty"`
+	TwoFactorEnabled bool      `json:"two_factor_enabled"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 
@@ -33,6 +43,7 @@ func (u User) Public() PublicUser {
 		IsAdmin:          u.IsAdmin,
 		FailedLoginCount: u.FailedLoginCount,
 		LockedUntil:      u.LockedUntil,
+		TwoFactorEnabled: u.TwoFactorEnabled,
 		CreatedAt:        u.CreatedAt,
 	}
 }

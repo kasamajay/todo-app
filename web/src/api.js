@@ -78,6 +78,8 @@ export const api = {
   forgotPassword: (email) => request('POST', '/api/auth/forgot-password', { email }),
   resetPassword: (token, newPassword) =>
     request('POST', '/api/auth/reset-password', { token, new_password: newPassword }),
+  verifyTwoFactor: (userId, code) => request('POST', '/api/auth/2fa/verify', { user_id: userId, code }),
+  updateTwoFactor: (enabled) => request('PUT', '/api/auth/2fa', { enabled }),
 
   listBoards: () => request('GET', '/api/boards'),
   createBoard: (board) => request('POST', '/api/boards', board),

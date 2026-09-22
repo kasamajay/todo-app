@@ -82,10 +82,12 @@ func main() {
 	mux.HandleFunc("POST /api/auth/reset-password", authH.ResetPassword)
 	mux.HandleFunc("GET /api/auth/google/login", authH.GoogleLogin)
 	mux.HandleFunc("GET /api/auth/google/callback", authH.GoogleCallback)
+	mux.HandleFunc("POST /api/auth/2fa/verify", authH.VerifyTwoFactor)
 
 	// Authenticated routes.
 	mux.HandleFunc("POST /api/auth/logout", protected(authH.Logout))
 	mux.HandleFunc("GET /api/auth/me", protected(authH.Me))
+	mux.HandleFunc("PUT /api/auth/2fa", protected(authH.UpdateTwoFactor))
 
 	mux.HandleFunc("GET /api/boards", protected(boardsH.List))
 	mux.HandleFunc("POST /api/boards", protected(boardsH.Create))

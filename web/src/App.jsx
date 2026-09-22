@@ -23,6 +23,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [activeBoard, setActiveBoard] = useState(null)
   const [googleError, setGoogleError] = useState('')
+  const [pendingGoogleTwoFactorUserId, setPendingGoogleTwoFactorUserId] = useState('')
 
   useEffect(() => {
     onUnauthorized(() => {
@@ -35,9 +36,11 @@ export default function App() {
       const params = new URLSearchParams(window.location.hash.slice(1))
       const googleToken = params.get('google_token')
       const errorCode = params.get('google_error')
+      const google2faUserId = params.get('google_2fa_required')
       if (googleToken) setToken(googleToken)
       if (errorCode) setGoogleError(GOOGLE_ERROR_MESSAGES[errorCode] || 'Google sign-in failed. Please try again.')
-      if (googleToken || errorCode) {
+      if (google2faUserId) setPendingGoogleTwoFactorUserId(google2faUserId)
+      if (googleToken || errorCode || google2faUserId) {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
@@ -94,11 +97,19 @@ export default function App() {
   }
 
   if (view === 'login') {
-    return <Login onSuccess={handleLoginSuccess} banner={googleError} />
+    return (
+      <Login
+        onSuccess={handleLoginSuccess}
+        banner={googleError}
+        initialTwoFactorUserId={pendingGoogleTwoFactorUserId}
+      />
+    )
   }
 
   if (view === 'boards') {
-    return <BoardsList user={user} onSelectBoard={handleSelectBoard} onLogout={handleLogout} />
+    return (
+      <BoardsList user={user} onSelectBoard={handleSelectBoard} onLogout={handleLogout} onUserUpdated={setUser} />
+    )
   }
 
   if (view === 'kanban' && activeBoard) {

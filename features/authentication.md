@@ -12,6 +12,7 @@ Register/login/logout/me/forgot-password/reset-password, account lockout, and ti
 - **Forgot password** (`POST /api/auth/forgot-password`) — if the email matches an account, generates a reset token (1h expiry) and logs it server-side (see [decisions/0007](../decisions/0007-no-email-infra-reset-token-logged.md)); always responds 200 regardless of whether the email exists.
 - **Reset password** (`POST /api/auth/reset-password`) — `{token, new_password}`, validates the token and expiry, rehashes the password, and clears any lockout state.
 - **Sign in with Google** (`GET /api/auth/google/login` → `GET /api/auth/google/callback`) — OAuth 2.0 Authorization Code flow (see [decisions/0010](../decisions/0010-google-oauth-authorization-code-flow.md)); on the regular login screen only, not `/admin`. Matches an existing account by `GoogleID` first, then auto-links to an existing password account by verified email, else creates a new password-less account. A password `Login` attempt against a Google-only account (no password set) returns the same generic `invalid_credentials` as a nonexistent email. Disabled (routes respond `503`) unless `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are configured.
+- **Two-factor authentication** — opt-in per account (`User.TwoFactorEnabled`, off by default), toggled by the account owner via `PUT /api/auth/2fa` (see [decisions/0011](../decisions/0011-opt-in-email-code-two-factor-auth.md)). When enabled, a successful password `Login` or Google sign-in doesn't mint a token immediately — it issues a 6-digit code (10-minute expiry, logged server-side rather than emailed, same reasoning as [decisions/0007](../decisions/0007-no-email-infra-reset-token-logged.md)) and responds `{"two_factor_required": true, "user_id": ...}` (password path) or redirects to `#google_2fa_required=<user_id>` (Google path). The client then calls `POST /api/auth/2fa/verify {user_id, code}` to complete login. Wrong codes are capped at 5 attempts (separate from the account-lockout mechanism), after which the code is invalidated and a fresh login is required.
 
 ## API
 | Method | Path | Auth |
@@ -24,18 +25,22 @@ Register/login/logout/me/forgot-password/reset-password, account lockout, and ti
 | POST | `/api/auth/reset-password` | none |
 | GET | `/api/auth/google/login` | none |
 | GET | `/api/auth/google/callback` | none |
+| POST | `/api/auth/2fa/verify` | none |
+| PUT | `/api/auth/2fa` | bearer |
 
 ## Key files
-- `api/internal/handlers/auth_handler.go` — register/login/logout/me/forgot/reset handlers.
-- `api/internal/handlers/auth_google_handler.go` — `GoogleLogin`/`GoogleCallback`.
+- `api/internal/handlers/auth_handler.go` — register/login/logout/me/forgot/reset handlers, plus `VerifyTwoFactor`/`UpdateTwoFactor` and the shared `issueTwoFactorChallenge` helper.
+- `api/internal/handlers/auth_google_handler.go` — `GoogleLogin`/`GoogleCallback` (the latter also gates on `TwoFactorEnabled`).
 - `api/internal/auth/pbkdf2.go`, `password.go` — password hashing.
 - `api/internal/auth/token.go`, `secret.go` — token mint/verify, signing secret.
 - `api/internal/auth/google.go` — stdlib HTTP calls to Google's token-exchange and userinfo endpoints.
+- `api/internal/auth/twofactor.go` — `GenerateSixDigitCode` (crypto/rand).
 - `api/internal/middleware/middleware.go` — `RequireAuth` extracts and verifies the bearer token.
-- `api/internal/models/models.go` — `User.FailedLoginCount`, `LockedUntil`, `ResetToken`, `ResetTokenExpires`, `GoogleID`.
-- `web/src/components/Login.jsx` — single component covering all four password modes (login/register/forgot/reset) plus the Google button (`allowGoogle` prop).
+- `api/internal/models/models.go` — `User.FailedLoginCount`, `LockedUntil`, `ResetToken`, `ResetTokenExpires`, `GoogleID`, `TwoFactorEnabled`, `TwoFactorCode`, `TwoFactorCodeExpires`, `TwoFactorAttempts`.
+- `web/src/components/Login.jsx` — single component covering all password modes (login/register/forgot/reset/twoFactor) plus the Google button (`allowGoogle` prop) and the 2FA code-entry step (`initialTwoFactorUserId` prop, for the Google-redirect case).
 - `web/src/admin/AdminLogin.jsx` — renders `Login` with `allowGoogle={false}`.
-- `web/src/App.jsx` — picks up `#google_token=`/`#google_error=` from the URL hash on mount after the Google redirect.
+- `web/src/App.jsx` — picks up `#google_token=`/`#google_error=`/`#google_2fa_required=` from the URL hash on mount after the Google redirect.
+- `web/src/components/TwoFactorSettings.jsx` — settings modal (opened from `BoardsList.jsx`'s header) to toggle 2FA on/off.
 - `web/src/api.js` — `getToken`/`setToken`/`clearToken`, and `onUnauthorized` hook that bounces the app back to the login view on any 401.
 
 ## Related
