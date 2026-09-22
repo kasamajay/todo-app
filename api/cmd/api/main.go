@@ -46,6 +46,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load attachments store: %v", err)
 	}
+	labels, err := storage.NewLabelStore(filepath.Join(dataDir, "labels.json"))
+	if err != nil {
+		log.Fatalf("failed to load labels store: %v", err)
+	}
 
 	secret, err := auth.LoadOrCreateSecret(dataDir)
 	if err != nil {
@@ -64,9 +68,10 @@ func main() {
 		GoogleRedirectURI:  googleRedirectURI,
 		FrontendBaseURL:    frontendBaseURL,
 	}
-	boardsH := &handlers.BoardsHandler{Boards: boards, Tasks: tasks, Attachments: attachments}
-	tasksH := &handlers.TasksHandler{Tasks: tasks, Boards: boards, Attachments: attachments}
+	boardsH := &handlers.BoardsHandler{Boards: boards, Tasks: tasks, Attachments: attachments, Labels: labels}
+	tasksH := &handlers.TasksHandler{Tasks: tasks, Boards: boards, Attachments: attachments, Labels: labels}
 	attachmentsH := &handlers.AttachmentsHandler{Attachments: attachments, Tasks: tasks}
+	labelsH := &handlers.LabelsHandler{Labels: labels, Tasks: tasks, Boards: boards}
 	adminH := &handlers.AdminHandler{Users: users}
 
 	requireAuth := middleware.RequireAuth(secret, users)
@@ -98,6 +103,11 @@ func main() {
 	mux.HandleFunc("POST /api/tasks", protected(tasksH.Create))
 	mux.HandleFunc("PUT /api/tasks/{id}", protected(tasksH.Update))
 	mux.HandleFunc("DELETE /api/tasks/{id}", protected(tasksH.Delete))
+
+	mux.HandleFunc("GET /api/labels", protected(labelsH.List))
+	mux.HandleFunc("POST /api/labels", protected(labelsH.Create))
+	mux.HandleFunc("PUT /api/labels/{id}", protected(labelsH.Update))
+	mux.HandleFunc("DELETE /api/labels/{id}", protected(labelsH.Delete))
 
 	mux.HandleFunc("POST /api/tasks/{id}/attachments", protected(attachmentsH.Upload))
 	mux.HandleFunc("GET /api/tasks/{id}/attachments", protected(attachmentsH.List))

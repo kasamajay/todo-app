@@ -15,6 +15,7 @@ type BoardsHandler struct {
 	Boards      *storage.BoardStore
 	Tasks       *storage.TaskStore
 	Attachments *storage.AttachmentStore
+	Labels      *storage.LabelStore
 }
 
 func (h *BoardsHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +109,9 @@ func (h *BoardsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			h.Attachments.Delete(att.ID)
 		}
 		h.Tasks.Delete(task.ID)
+	}
+	for _, label := range h.Labels.ListByBoardAny(board.ID) {
+		h.Labels.Delete(label.ID)
 	}
 
 	if err := h.Boards.Delete(board.ID); err != nil {

@@ -11,13 +11,18 @@ const STATUS_OPTIONS = [
   { value: 'done', label: 'Done' },
 ]
 
-export default function TaskForm({ task, onSave, onDelete, onClose }) {
+export default function TaskForm({ task, labels = [], onSave, onDelete, onClose }) {
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
   const [status, setStatus] = useState(task?.status || 'todo')
   const [dueDate, setDueDate] = useState(task?.due_date ? task.due_date.slice(0, 10) : '')
+  const [labelIds, setLabelIds] = useState(task?.label_ids || [])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  function toggleLabel(id) {
+    setLabelIds((prev) => (prev.includes(id) ? prev.filter((lid) => lid !== id) : [...prev, id]))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -25,7 +30,7 @@ export default function TaskForm({ task, onSave, onDelete, onClose }) {
     setSaving(true)
     try {
       const due_date = dueDate ? `${dueDate}T00:00:00Z` : ''
-      await onSave({ title, description, status, due_date })
+      await onSave({ title, description, status, due_date, label_ids: labelIds })
     } catch (err) {
       setError(err.message || 'Failed to save task')
     } finally {
@@ -67,6 +72,36 @@ export default function TaskForm({ task, onSave, onDelete, onClose }) {
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
+
+        {labels.length > 0 && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={labelStyle}>Labels</label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {labels.map((l) => {
+                const active = labelIds.includes(l.id)
+                return (
+                  <button
+                    type="button"
+                    key={l.id}
+                    onClick={() => toggleLabel(l.id)}
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      border: `1.5px solid ${l.color}`,
+                      background: active ? l.color : '#ffffff',
+                      color: active ? '#ffffff' : l.color,
+                      borderRadius: '10px',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {l.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {error && <p style={{ color: colors.danger, fontSize: '13px' }}>{error}</p>}
 

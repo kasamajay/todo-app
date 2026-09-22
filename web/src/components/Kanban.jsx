@@ -4,6 +4,7 @@ import { colors, cardStyle, fontFamily, pageStyle } from '../theme.js'
 import Button from './common/Button.jsx'
 import TaskCard from './TaskCard.jsx'
 import TaskForm from './TaskForm.jsx'
+import LabelsManager from './LabelsManager.jsx'
 
 const COLUMNS = [
   { status: 'todo', title: 'To do' },
@@ -13,10 +14,13 @@ const COLUMNS = [
 
 export default function Kanban({ board, onBack, onLogout }) {
   const [tasks, setTasks] = useState([])
+  const [labels, setLabels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
+  const [labelsManagerOpen, setLabelsManagerOpen] = useState(false)
+  const [activeLabelFilter, setActiveLabelFilter] = useState(null)
 
   useEffect(() => {
     refresh()
@@ -25,12 +29,22 @@ export default function Kanban({ board, onBack, onLogout }) {
   async function refresh() {
     setLoading(true)
     try {
-      const data = await api.listTasks(board.id)
-      setTasks(data || [])
+      const [taskData, labelData] = await Promise.all([api.listTasks(board.id), api.listLabels(board.id)])
+      setTasks(taskData || [])
+      setLabels(labelData || [])
     } catch (err) {
       setError(err.message || 'Failed to load tasks')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function refreshLabels() {
+    try {
+      const data = await api.listLabels(board.id)
+      setLabels(data || [])
+    } catch (err) {
+      setError(err.message || 'Failed to load labels')
     }
   }
 
@@ -85,6 +99,10 @@ export default function Kanban({ board, onBack, onLogout }) {
     }
   }
 
+  const visibleTasks = activeLabelFilter
+    ? tasks.filter((t) => (t.label_ids || []).includes(activeLabelFilter))
+    : tasks
+
   return (
     <div style={{ ...pageStyle, padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -98,6 +116,9 @@ export default function Kanban({ board, onBack, onLogout }) {
         <button style={linkBtn} onClick={onBack}>
           &larr; Boards
         </button>
+        <button style={linkBtn} onClick={() => setLabelsManagerOpen(true)}>
+          Manage labels
+        </button>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
@@ -110,13 +131,29 @@ export default function Kanban({ board, onBack, onLogout }) {
       {loading && <p style={{ color: colors.textMuted }}>Loading…</p>}
       {error && <p style={{ color: colors.danger }}>{error}</p>}
 
+      {labels.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <FilterChip label="All" active={activeLabelFilter === null} onClick={() => setActiveLabelFilter(null)} />
+          {labels.map((l) => (
+            <FilterChip
+              key={l.id}
+              label={l.name}
+              color={l.color}
+              active={activeLabelFilter === l.id}
+              onClick={() => setActiveLabelFilter(activeLabelFilter === l.id ? null : l.id)}
+            />
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
         {COLUMNS.map((col) => (
           <Column
             key={col.status}
             title={col.title}
             status={col.status}
-            tasks={tasks.filter((t) => t.status === col.status)}
+            tasks={visibleTasks.filter((t) => t.status === col.status)}
+            labels={labels}
             onDropTask={handleDrop}
             onTaskClick={openEdit}
           />
@@ -126,16 +163,51 @@ export default function Kanban({ board, onBack, onLogout }) {
       {formOpen && (
         <TaskForm
           task={editingTask}
+          labels={labels}
           onSave={handleSave}
           onDelete={editingTask ? handleDelete : undefined}
           onClose={closeForm}
+        />
+      )}
+
+      {labelsManagerOpen && (
+        <LabelsManager
+          board={board}
+          labels={labels}
+          onChange={refreshLabels}
+          onClose={() => setLabelsManagerOpen(false)}
         />
       )}
     </div>
   )
 }
 
-function Column({ title, status, tasks, onDropTask, onTaskClick }) {
+function FilterChip({ label, color, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontSize: '12px',
+        fontWeight: 600,
+        border: `1.5px solid ${active ? colors.brand : colors.border}`,
+        background: active ? colors.brandLight : '#ffffff',
+        color: active ? colors.brandDark : colors.text,
+        borderRadius: '999px',
+        padding: '4px 12px',
+        cursor: 'pointer',
+      }}
+    >
+      {color && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />}
+      {label}
+    </button>
+  )
+}
+
+function Column({ title, status, tasks, labels, onDropTask, onTaskClick }) {
   const [dragOver, setDragOver] = useState(false)
 
   function handleDragOver(e) {
@@ -171,7 +243,7 @@ function Column({ title, status, tasks, onDropTask, onTaskClick }) {
         <span style={{ fontSize: '12px', color: colors.textMuted }}>{tasks.length}</span>
       </div>
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} onClick={onTaskClick} />
+        <TaskCard key={task.id} task={task} labels={labels} onClick={onTaskClick} />
       ))}
     </div>
   )
