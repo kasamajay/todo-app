@@ -11,6 +11,8 @@ export const colors = {
   textMuted: '#6b7280',
   danger: '#ef4444',
   dangerLight: '#fee2e2',
+  warning: '#f59e0b',
+  warningLight: '#fef3c7',
   success: '#16a34a',
 }
 
