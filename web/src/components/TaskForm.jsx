@@ -15,6 +15,7 @@ export default function TaskForm({ task, onSave, onDelete, onClose }) {
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
   const [status, setStatus] = useState(task?.status || 'todo')
+  const [dueDate, setDueDate] = useState(task?.due_date ? task.due_date.slice(0, 10) : '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -23,7 +24,8 @@ export default function TaskForm({ task, onSave, onDelete, onClose }) {
     setError('')
     setSaving(true)
     try {
-      await onSave({ title, description, status })
+      const due_date = dueDate ? `${dueDate}T00:00:00Z` : ''
+      await onSave({ title, description, status, due_date })
     } catch (err) {
       setError(err.message || 'Failed to save task')
     } finally {
@@ -54,6 +56,16 @@ export default function TaskForm({ task, onSave, onDelete, onClose }) {
               </option>
             ))}
           </select>
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Due date</label>
+          <input
+            type="date"
+            style={inputStyle}
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
         </div>
 
         {error && <p style={{ color: colors.danger, fontSize: '13px' }}>{error}</p>}

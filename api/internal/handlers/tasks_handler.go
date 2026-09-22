@@ -33,6 +33,21 @@ type taskRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Status      *string `json:"status"`
+	DueDate     *string `json:"due_date"`
+}
+
+// parseDueDate converts a client-supplied due-date string into a *time.Time.
+// An empty string returns (nil, nil), meaning "no due date". A non-empty
+// string must be valid RFC3339; anything else is a validation error.
+func parseDueDate(raw string) (*time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +84,16 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		description = *req.Description
 	}
 
+	var dueDate *time.Time
+	if req.DueDate != nil {
+		d, err := parseDueDate(*req.DueDate)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_due_date", "due date must be a valid RFC3339 timestamp")
+			return
+		}
+		dueDate = d
+	}
+
 	now := time.Now()
 	task := models.Task{
 		ID:          idgen.New(),
@@ -77,6 +102,7 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Title:       *req.Title,
 		Description: description,
 		Status:      status,
+		DueDate:     dueDate,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -120,6 +146,14 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		task.Status = s
+	}
+	if req.DueDate != nil {
+		d, err := parseDueDate(*req.DueDate)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_due_date", "due date must be a valid RFC3339 timestamp")
+			return
+		}
+		task.DueDate = d
 	}
 	if req.BoardID != "" && req.BoardID != task.BoardID {
 		board, ok := h.Boards.Get(req.BoardID)

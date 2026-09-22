@@ -9,6 +9,7 @@ Per-user, per-board task CRUD, surfaced as a 3-column Kanban board with native d
 - `PUT /api/tasks/{id}` handles both full field edits (from the task edit modal) and single-field status changes (from dragging a card between columns) — the request body only needs to include the fields being changed, since each field is a `*string` pointer that's only applied when non-nil.
 - Deleting a task cascades to its attachments (metadata + binary blobs) before deleting the task itself.
 - **Drag-and-drop** is native HTML5 DnD (`draggable`, `dataTransfer`), no library: `TaskCard.jsx` sets the task ID on `dragstart`; each column `<div>` in `Kanban.jsx` handles `onDragOver` (calls `preventDefault()` to allow dropping, plus a highlight state toggle) and `onDrop` (reads the task ID back out and calls `PUT /api/tasks/{id}` with the new status). The UI updates optimistically and rolls back if the API call fails.
+- **Due dates** (`due_date`) are optional, stored as RFC3339 timestamps. An omitted `due_date` field leaves it unchanged (partial-update semantics like the other fields); an empty string clears it; anything else must parse as RFC3339 or the request fails with `400 invalid_due_date`. There's no email/push delivery for reminders (see [decisions/0007](../decisions/0007-no-email-infra-reset-token-logged.md)) — instead, `TaskCard.jsx` computes an in-app status from the due date and gives the card a colored left border + label: **overdue** (red, past due) or **due soon** (amber, due within 24h), for any task not already `done`.
 
 ## API
 | Method | Path | Auth | Notes |
