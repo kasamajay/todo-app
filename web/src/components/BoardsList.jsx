@@ -3,13 +3,15 @@ import { api } from '../api.js'
 import { colors, cardStyle, fontFamily, pageStyle } from '../theme.js'
 import Button from './common/Button.jsx'
 import BoardForm from './BoardForm.jsx'
+import TwoFactorSettings from './TwoFactorSettings.jsx'
 
-export default function BoardsList({ user, onSelectBoard, onLogout }) {
+export default function BoardsList({ user, onSelectBoard, onLogout, onUserUpdated }) {
   const [boards, setBoards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingBoard, setEditingBoard] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     refresh()
@@ -66,7 +68,7 @@ export default function BoardsList({ user, onSelectBoard, onLogout }) {
 
   return (
     <div style={{ ...pageStyle, padding: '24px' }}>
-      <Header user={user} onLogout={onLogout} />
+      <Header user={user} onLogout={onLogout} onOpenSettings={() => setSettingsOpen(true)} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>Your boards</h2>
@@ -130,16 +132,27 @@ export default function BoardsList({ user, onSelectBoard, onLogout }) {
       </div>
 
       {formOpen && <BoardForm board={editingBoard} onSave={handleSave} onClose={closeForm} />}
+
+      {settingsOpen && (
+        <TwoFactorSettings
+          user={user}
+          onClose={() => setSettingsOpen(false)}
+          onUpdated={(updated) => onUserUpdated && onUserUpdated(updated)}
+        />
+      )}
     </div>
   )
 }
 
-function Header({ user, onLogout }) {
+function Header({ user, onLogout, onOpenSettings }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <h1 style={{ margin: 0, fontSize: '22px', color: colors.brand, fontFamily }}>Todo App</h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {user && <span style={{ fontSize: '13px', color: colors.textMuted }}>{user.email}</span>}
+        <button style={linkBtn} onClick={onOpenSettings}>
+          Two-factor authentication
+        </button>
         <button style={linkBtn} onClick={onLogout}>
           Log out
         </button>

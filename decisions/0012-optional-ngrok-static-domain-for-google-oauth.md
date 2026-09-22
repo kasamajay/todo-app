@@ -1,4 +1,4 @@
-# 0011. Optional ngrok static domain for stable Google OAuth redirects
+# 0012. Optional ngrok static domain for stable Google OAuth redirects
 
 ## Context
 `decisions/0009` and `decisions/0010` both flagged the same limitation: ngrok's free-tier tunnel gets a new random subdomain every run, but Google OAuth requires an exact, pre-registered redirect URI in Google Cloud Console — so Google sign-in worked at `localhost:5173` but not through an ngrok session. The user wants Google sign-in to work over ngrok too, without manually reconfiguring Google Console every time they restart the tunnel.

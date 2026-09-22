@@ -9,13 +9,24 @@ const MODES = {
   register: { title: 'Create account', submitLabel: 'Create account' },
   forgot: { title: 'Reset password', submitLabel: 'Send reset link' },
   reset: { title: 'Set new password', submitLabel: 'Set new password' },
+  twoFactor: { title: 'Enter verification code', submitLabel: 'Verify' },
 }
 
-export default function Login({ onSuccess, defaultEmail = '', allowRegister = true, allowForgot = true, allowGoogle = true, banner = '' }) {
-  const [mode, setMode] = useState('login')
+export default function Login({
+  onSuccess,
+  defaultEmail = '',
+  allowRegister = true,
+  allowForgot = true,
+  allowGoogle = true,
+  banner = '',
+  initialTwoFactorUserId = '',
+}) {
+  const [mode, setMode] = useState(initialTwoFactorUserId ? 'twoFactor' : 'login')
   const [email, setEmail] = useState(defaultEmail)
   const [password, setPassword] = useState('')
   const [resetToken, setResetToken] = useState('')
+  const [code, setCode] = useState('')
+  const [twoFactorUserId, setTwoFactorUserId] = useState(initialTwoFactorUserId)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
@@ -28,6 +39,16 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
     try {
       if (mode === 'login') {
         const res = await api.login(email, password)
+        if (res.two_factor_required) {
+          setTwoFactorUserId(res.user_id)
+          setMode('twoFactor')
+          setPassword('')
+        } else {
+          setToken(res.token)
+          onSuccess(res.user)
+        }
+      } else if (mode === 'twoFactor') {
+        const res = await api.verifyTwoFactor(twoFactorUserId, code)
         setToken(res.token)
         onSuccess(res.user)
       } else if (mode === 'register') {
@@ -71,7 +92,7 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
         {banner && <p style={{ color: colors.danger, fontSize: '13px', marginTop: 0 }}>{banner}</p>}
 
         <form onSubmit={handleSubmit}>
-          {mode !== 'reset' && (
+          {mode !== 'reset' && mode !== 'twoFactor' && (
             <TextField
               label="Email"
               type="email"
@@ -91,7 +112,7 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
             />
           )}
 
-          {mode !== 'forgot' && (
+          {mode !== 'forgot' && mode !== 'twoFactor' && (
             <TextField
               label={mode === 'reset' ? 'New password' : 'Password'}
               type="password"
@@ -100,6 +121,18 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+            />
+          )}
+
+          {mode === 'twoFactor' && (
+            <TextField
+              label="Verification code"
+              required
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
             />
           )}
 
@@ -149,7 +182,15 @@ export default function Login({ onSuccess, defaultEmail = '', allowRegister = tr
             </>
           )}
           {mode !== 'login' && (
-            <LinkButton onClick={() => { setMode('login'); setError(''); setInfo('') }}>
+            <LinkButton
+              onClick={() => {
+                setMode('login')
+                setError('')
+                setInfo('')
+                setCode('')
+                setTwoFactorUserId('')
+              }}
+            >
               Back to log in
             </LinkButton>
           )}

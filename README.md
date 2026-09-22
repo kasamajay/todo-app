@@ -92,7 +92,7 @@ be pre-registered with Google. Fix this once with a free static ngrok domain:
 5. `docker compose up -d api` (recreate, not just `restart` - Compose only
    re-reads `.env` when a container is created, not on every restart) then
    `.\start.ps1`. The printed public URL is now your static domain every
-   time. See [`decisions/0011`](decisions/0011-optional-ngrok-static-domain-for-google-oauth.md).
+   time. See [`decisions/0012`](decisions/0012-optional-ngrok-static-domain-for-google-oauth.md).
 
 ## Makefile / raw docker compose commands
 
