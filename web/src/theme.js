@@ -16,6 +16,19 @@ export const colors = {
   success: '#16a34a',
 }
 
+// labelColors is the fixed palette task labels may use - mirrors
+// api/internal/models.LabelColors exactly (same hex values, same order).
+export const labelColors = [
+  { value: colors.brand, name: 'Indigo' },
+  { value: colors.danger, name: 'Red' },
+  { value: colors.warning, name: 'Amber' },
+  { value: colors.success, name: 'Green' },
+  { value: '#0ea5e9', name: 'Blue' },
+  { value: '#8b5cf6', name: 'Purple' },
+  { value: '#ec4899', name: 'Pink' },
+  { value: '#6b7280', name: 'Gray' },
+]
+
 export const fontFamily =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 

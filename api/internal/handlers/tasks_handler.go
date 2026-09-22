@@ -15,6 +15,7 @@ type TasksHandler struct {
 	Tasks       *storage.TaskStore
 	Boards      *storage.BoardStore
 	Attachments *storage.AttachmentStore
+	Labels      *storage.LabelStore
 }
 
 func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -29,11 +30,12 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 type taskRequest struct {
-	BoardID     string  `json:"board_id"`
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Status      *string `json:"status"`
-	DueDate     *string `json:"due_date"`
+	BoardID     string    `json:"board_id"`
+	Title       *string   `json:"title"`
+	Description *string   `json:"description"`
+	Status      *string   `json:"status"`
+	DueDate     *string   `json:"due_date"`
+	LabelIDs    *[]string `json:"label_ids"`
 }
 
 // parseDueDate converts a client-supplied due-date string into a *time.Time.
@@ -48,6 +50,18 @@ func parseDueDate(raw string) (*time.Time, error) {
 		return nil, err
 	}
 	return &t, nil
+}
+
+// validateLabelIDs reports whether every id in ids names a Label that
+// belongs to boardID and to userID.
+func (h *TasksHandler) validateLabelIDs(ids []string, boardID, userID string) bool {
+	for _, id := range ids {
+		label, ok := h.Labels.Get(id)
+		if !ok || label.BoardID != boardID || label.UserID != userID {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +108,15 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		dueDate = d
 	}
 
+	labelIDs := []string{}
+	if req.LabelIDs != nil {
+		if !h.validateLabelIDs(*req.LabelIDs, board.ID, user.ID) {
+			writeError(w, http.StatusBadRequest, "invalid_label", "one or more label ids are invalid for this board")
+			return
+		}
+		labelIDs = *req.LabelIDs
+	}
+
 	now := time.Now()
 	task := models.Task{
 		ID:          idgen.New(),
@@ -103,6 +126,7 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Description: description,
 		Status:      status,
 		DueDate:     dueDate,
+		LabelIDs:    labelIDs,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -154,6 +178,18 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		task.DueDate = d
+	}
+	if req.LabelIDs != nil {
+		// Validated against the task's current board - a request that both
+		// reassigns the board and sets label_ids in the same call would
+		// validate against the old board. Not reachable from the frontend
+		// (TaskForm never reassigns boards), so left as a documented edge
+		// case rather than handled.
+		if !h.validateLabelIDs(*req.LabelIDs, task.BoardID, user.ID) {
+			writeError(w, http.StatusBadRequest, "invalid_label", "one or more label ids are invalid for this board")
+			return
+		}
+		task.LabelIDs = *req.LabelIDs
 	}
 	if req.BoardID != "" && req.BoardID != task.BoardID {
 		board, ok := h.Boards.Get(req.BoardID)

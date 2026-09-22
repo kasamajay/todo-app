@@ -29,3 +29,4 @@ Per-user, per-board task CRUD, surfaced as a 3-column Kanban board with native d
 
 ## Related
 [diagrams/data-model.md](../diagrams/data-model.md) shows how `Task` relates to `Board` and `Attachment`.
+[labels.md](labels.md) — color-coded labels attached to tasks, with filtering on this board.

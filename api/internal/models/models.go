@@ -62,6 +62,39 @@ type Board struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Label struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	BoardID   string    `json:"board_id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// LabelColors is the fixed palette labels may use. web/src/theme.js's
+// labelColors mirrors this exact list (same hex values, same order) -
+// kept in sync manually since there's no shared config between the Go API
+// and the JS frontend.
+var LabelColors = []string{
+	"#6366f1", // brand indigo
+	"#ef4444", // danger red
+	"#f59e0b", // warning amber
+	"#16a34a", // success green
+	"#0ea5e9", // blue
+	"#8b5cf6", // purple
+	"#ec4899", // pink
+	"#6b7280", // gray
+}
+
+func IsValidLabelColor(c string) bool {
+	for _, v := range LabelColors {
+		if v == c {
+			return true
+		}
+	}
+	return false
+}
+
 type TaskStatus string
 
 const (
@@ -86,6 +119,7 @@ type Task struct {
 	Description string     `json:"description"`
 	Status      TaskStatus `json:"status"`
 	DueDate     *time.Time `json:"due_date,omitempty"`
+	LabelIDs    []string   `json:"label_ids,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }

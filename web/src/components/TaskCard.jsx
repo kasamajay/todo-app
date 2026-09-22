@@ -10,7 +10,7 @@ function getDueStatus(task) {
   return null
 }
 
-export default function TaskCard({ task, onClick }) {
+export default function TaskCard({ task, labels = [], onClick }) {
   function handleDragStart(e) {
     e.dataTransfer.setData('text/plain', task.id)
     e.dataTransfer.effectAllowed = 'move'
@@ -19,6 +19,7 @@ export default function TaskCard({ task, onClick }) {
   const dueStatus = getDueStatus(task)
   const accentColor =
     dueStatus === 'overdue' ? colors.danger : dueStatus === 'soon' ? colors.warning : colors.brand
+  const taskLabels = (task.label_ids || []).map((id) => labels.find((l) => l.id === id)).filter(Boolean)
 
   return (
     <div
@@ -33,6 +34,26 @@ export default function TaskCard({ task, onClick }) {
         borderLeft: `3px solid ${accentColor}`,
       }}
     >
+      {taskLabels.length > 0 && (
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+          {taskLabels.map((l) => (
+            <span
+              key={l.id}
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: '#ffffff',
+                background: l.color,
+                borderRadius: '10px',
+                padding: '2px 8px',
+                lineHeight: 1.4,
+              }}
+            >
+              {l.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: task.description ? '4px' : 0 }}>
         {task.title}
       </div>

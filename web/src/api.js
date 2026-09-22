@@ -91,6 +91,11 @@ export const api = {
   updateTask: (id, task) => request('PUT', `/api/tasks/${id}`, task),
   deleteTask: (id) => request('DELETE', `/api/tasks/${id}`),
 
+  listLabels: (boardId) => request('GET', `/api/labels?board_id=${encodeURIComponent(boardId)}`),
+  createLabel: (label) => request('POST', '/api/labels', label),
+  updateLabel: (id, label) => request('PUT', `/api/labels/${id}`, label),
+  deleteLabel: (id) => request('DELETE', `/api/labels/${id}`),
+
   listAttachments: (taskId) => request('GET', `/api/tasks/${taskId}/attachments`),
   uploadAttachment: (taskId, file) => {
     const form = new FormData()
