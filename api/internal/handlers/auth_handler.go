@@ -24,6 +24,14 @@ const (
 type AuthHandler struct {
 	Users  *storage.UserStore
 	Secret []byte
+
+	// Google OAuth config. GoogleClientID/GoogleClientSecret are blank when
+	// Sign in with Google isn't configured, in which case the google/*
+	// routes respond 503 rather than failing at startup.
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURI  string
+	FrontendBaseURL    string
 }
 
 var (
@@ -110,19 +118,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 
 	user, found := h.Users.FindByEmail(email)
+	hasPassword := found && len(user.PasswordHash) > 0
 
 	var salt, hash []byte
-	if found {
+	if hasPassword {
 		salt, hash = user.Salt, user.PasswordHash
 	} else {
 		salt, hash = dummyLoginParams()
 	}
 
-	// Always run PBKDF2 - found or not - so response timing doesn't reveal
-	// whether the email is registered.
+	// Always run PBKDF2 - found or not, password set or not - so response
+	// timing doesn't reveal whether the email is registered or is a
+	// Google-only account with no password set.
 	match := auth.VerifyPassword(req.Password, hash, salt)
 
-	if !found {
+	if !hasPassword {
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}

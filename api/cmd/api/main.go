@@ -18,6 +18,13 @@ import (
 func main() {
 	addr := getEnv("ADDR", ":8080")
 	dataDir := getEnv("DATA_DIR", "./data")
+	googleClientID := getEnv("GOOGLE_CLIENT_ID", "")
+	googleClientSecret := getEnv("GOOGLE_CLIENT_SECRET", "")
+	googleRedirectURI := getEnv("GOOGLE_REDIRECT_URI", "http://localhost:5173/api/auth/google/callback")
+	frontendBaseURL := getEnv("FRONTEND_BASE_URL", "http://localhost:5173")
+	if googleClientID == "" || googleClientSecret == "" {
+		log.Printf("Google OAuth not configured (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET unset) - Sign in with Google is disabled")
+	}
 
 	if err := os.MkdirAll(filepath.Join(dataDir, "attachments"), 0o755); err != nil {
 		log.Fatalf("failed to create data directory: %v", err)
@@ -49,7 +56,14 @@ func main() {
 		log.Fatalf("failed to bootstrap admin account: %v", err)
 	}
 
-	authH := &handlers.AuthHandler{Users: users, Secret: secret}
+	authH := &handlers.AuthHandler{
+		Users:              users,
+		Secret:             secret,
+		GoogleClientID:     googleClientID,
+		GoogleClientSecret: googleClientSecret,
+		GoogleRedirectURI:  googleRedirectURI,
+		FrontendBaseURL:    frontendBaseURL,
+	}
 	boardsH := &handlers.BoardsHandler{Boards: boards, Tasks: tasks, Attachments: attachments}
 	tasksH := &handlers.TasksHandler{Tasks: tasks, Boards: boards, Attachments: attachments}
 	attachmentsH := &handlers.AttachmentsHandler{Attachments: attachments, Tasks: tasks}
@@ -66,6 +80,8 @@ func main() {
 	mux.HandleFunc("POST /api/auth/login", authH.Login)
 	mux.HandleFunc("POST /api/auth/forgot-password", authH.ForgotPassword)
 	mux.HandleFunc("POST /api/auth/reset-password", authH.ResetPassword)
+	mux.HandleFunc("GET /api/auth/google/login", authH.GoogleLogin)
+	mux.HandleFunc("GET /api/auth/google/callback", authH.GoogleCallback)
 
 	// Authenticated routes.
 	mux.HandleFunc("POST /api/auth/logout", protected(authH.Logout))

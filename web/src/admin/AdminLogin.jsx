@@ -18,7 +18,7 @@ export default function AdminLogin({ onSuccess }) {
 
   return (
     <div>
-      <Login onSuccess={handleSuccess} defaultEmail="admin@todo.io" allowRegister={false} allowForgot={true} />
+      <Login onSuccess={handleSuccess} defaultEmail="admin@todo.io" allowRegister={false} allowForgot={true} allowGoogle={false} />
       {notAdminError && (
         <p style={{ position: 'fixed', bottom: '24px', left: 0, right: 0, textAlign: 'center', color: colors.danger, fontSize: '13px' }}>
           {notAdminError}

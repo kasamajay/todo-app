@@ -7,6 +7,7 @@ type User struct {
 	Email             string    `json:"email"`
 	PasswordHash      []byte    `json:"password_hash"`
 	Salt              []byte    `json:"salt"`
+	GoogleID          string    `json:"google_id,omitempty"`
 	IsAdmin           bool      `json:"is_admin"`
 	FailedLoginCount  int       `json:"failed_login_count"`
 	LockedUntil       time.Time `json:"locked_until,omitempty"`

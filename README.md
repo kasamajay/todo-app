@@ -47,6 +47,30 @@ To reach the app from another device, or share it with someone, expose it via [n
 
 This brings the Docker Compose stack up if it isn't already running, tunnels the `web` container's port (5173), and prints a public HTTPS URL. Only that one port needs tunneling — Vite proxies `/api/*` to the `api` container internally, so the same URL serves the whole app, including `<url>/admin`. Ctrl+C stops the tunnel only; the Docker stack keeps running (`docker compose down` to stop that separately). See [`decisions/0009-ngrok-for-public-exposure.md`](decisions/0009-ngrok-for-public-exposure.md).
 
+## Sign in with Google (optional)
+
+The login screen has a "Sign in with Google" button. It's disabled by default
+(clicking it returns an error) until you configure your own OAuth client -
+this app has no shared credentials, and Google requires each app to register
+its own:
+
+1. https://console.cloud.google.com/apis/credentials → select or create a project.
+2. **OAuth consent screen** → User type "External", fill in the required
+   fields, leave it in **Testing** mode (add your own Google account as a
+   test user if prompted - no verification needed for personal use).
+3. **Credentials → Create Credentials → OAuth client ID** → Application type
+   **Web application**.
+4. **Authorized redirect URIs** → add exactly
+   `http://localhost:5173/api/auth/google/callback`.
+5. Copy the generated **Client ID** and **Client secret**.
+6. `cp .env.example .env`, then fill in `GOOGLE_CLIENT_ID=` and
+   `GOOGLE_CLIENT_SECRET=` with those values.
+7. `docker compose up` (or restart the `api` service if it's already
+   running) to pick up the new env vars.
+
+This only works at `http://localhost:5173` out of the box, not automatically
+through an ngrok tunnel - see [`decisions/0010`](decisions/0010-google-oauth-authorization-code-flow.md).
+
 ## Makefile / raw docker compose commands
 
 A `Makefile` is provided, but `make` isn't required - every target is a thin
@@ -90,6 +114,8 @@ See inline package docs in `api/internal/*` for line-level architecture details.
 | GET | `/api/auth/me` | bearer |
 | POST | `/api/auth/forgot-password` | none |
 | POST | `/api/auth/reset-password` | none |
+| GET | `/api/auth/google/login` | none |
+| GET | `/api/auth/google/callback` | none |
 | GET/POST | `/api/boards` | bearer |
 | PUT/DELETE | `/api/boards/{id}` | bearer (owner) |
 | GET/POST | `/api/tasks` | bearer |

@@ -11,6 +11,7 @@ Register/login/logout/me/forgot-password/reset-password, account lockout, and ti
 - **Me** (`GET /api/auth/me`) — returns the current user (from the bearer token) as a `PublicUser` (no password hash/salt).
 - **Forgot password** (`POST /api/auth/forgot-password`) — if the email matches an account, generates a reset token (1h expiry) and logs it server-side (see [decisions/0007](../decisions/0007-no-email-infra-reset-token-logged.md)); always responds 200 regardless of whether the email exists.
 - **Reset password** (`POST /api/auth/reset-password`) — `{token, new_password}`, validates the token and expiry, rehashes the password, and clears any lockout state.
+- **Sign in with Google** (`GET /api/auth/google/login` → `GET /api/auth/google/callback`) — OAuth 2.0 Authorization Code flow (see [decisions/0010](../decisions/0010-google-oauth-authorization-code-flow.md)); on the regular login screen only, not `/admin`. Matches an existing account by `GoogleID` first, then auto-links to an existing password account by verified email, else creates a new password-less account. A password `Login` attempt against a Google-only account (no password set) returns the same generic `invalid_credentials` as a nonexistent email. Disabled (routes respond `503`) unless `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are configured.
 
 ## API
 | Method | Path | Auth |
@@ -21,14 +22,20 @@ Register/login/logout/me/forgot-password/reset-password, account lockout, and ti
 | GET | `/api/auth/me` | bearer |
 | POST | `/api/auth/forgot-password` | none |
 | POST | `/api/auth/reset-password` | none |
+| GET | `/api/auth/google/login` | none |
+| GET | `/api/auth/google/callback` | none |
 
 ## Key files
-- `api/internal/handlers/auth_handler.go` — all six handlers.
+- `api/internal/handlers/auth_handler.go` — register/login/logout/me/forgot/reset handlers.
+- `api/internal/handlers/auth_google_handler.go` — `GoogleLogin`/`GoogleCallback`.
 - `api/internal/auth/pbkdf2.go`, `password.go` — password hashing.
 - `api/internal/auth/token.go`, `secret.go` — token mint/verify, signing secret.
+- `api/internal/auth/google.go` — stdlib HTTP calls to Google's token-exchange and userinfo endpoints.
 - `api/internal/middleware/middleware.go` — `RequireAuth` extracts and verifies the bearer token.
-- `api/internal/models/models.go` — `User.FailedLoginCount`, `LockedUntil`, `ResetToken`, `ResetTokenExpires`.
-- `web/src/components/Login.jsx` — single component covering all four modes (login/register/forgot/reset) via local `mode` state.
+- `api/internal/models/models.go` — `User.FailedLoginCount`, `LockedUntil`, `ResetToken`, `ResetTokenExpires`, `GoogleID`.
+- `web/src/components/Login.jsx` — single component covering all four password modes (login/register/forgot/reset) plus the Google button (`allowGoogle` prop).
+- `web/src/admin/AdminLogin.jsx` — renders `Login` with `allowGoogle={false}`.
+- `web/src/App.jsx` — picks up `#google_token=`/`#google_error=` from the URL hash on mount after the Google redirect.
 - `web/src/api.js` — `getToken`/`setToken`/`clearToken`, and `onUnauthorized` hook that bounces the app back to the login view on any 401.
 
 ## Related
