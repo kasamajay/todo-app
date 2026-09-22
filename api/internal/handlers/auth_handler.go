@@ -19,6 +19,9 @@ const (
 	lockDuration      = 30 * time.Minute
 	resetTokenTTL     = time.Hour
 	minPasswordLength = 8
+
+	twoFactorCodeTTL     = 10 * time.Minute
+	twoFactorMaxAttempts = 5
 )
 
 type AuthHandler struct {
@@ -161,6 +164,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.TwoFactorEnabled {
+		updated, err := h.issueTwoFactorChallenge(user)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error", "failed to start two-factor verification")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"two_factor_required": true, "user_id": updated.ID})
+		return
+	}
+
 	token, err := h.mint(user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "failed to mint token")
@@ -253,6 +266,137 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "password has been reset"})
+}
+
+// issueTwoFactorChallenge generates a 6-digit code for user, persists it
+// with a short expiry, and logs it server-side instead of emailing it (no
+// email infrastructure exists in this project - see decisions/0007 and
+// decisions/0011). Shared by Login and GoogleCallback, since both reach the
+// same account and must gate on 2FA identically.
+func (h *AuthHandler) issueTwoFactorChallenge(user models.User) (models.User, error) {
+	code, err := auth.GenerateSixDigitCode()
+	if err != nil {
+		return user, err
+	}
+	user.TwoFactorCode = code
+	user.TwoFactorCodeExpires = time.Now().Add(twoFactorCodeTTL)
+	user.TwoFactorAttempts = 0
+	if err := h.Users.Put(user.ID, user); err != nil {
+		return user, err
+	}
+	log.Printf("two-factor code requested for %s: code=%s (expires %s)",
+		user.Email, user.TwoFactorCode, user.TwoFactorCodeExpires.Format(time.RFC3339))
+	return user, nil
+}
+
+type verifyTwoFactorRequest struct {
+	UserID string `json:"user_id"`
+	Code   string `json:"code"`
+}
+
+// VerifyTwoFactor completes a login that issueTwoFactorChallenge put on
+// hold: it's a public route (the caller isn't fully authenticated yet),
+// gated by the code itself plus a small independent attempt budget rather
+// than a bearer token.
+func (h *AuthHandler) VerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
+	var req verifyTwoFactorRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must be valid JSON")
+		return
+	}
+	req.UserID = strings.TrimSpace(req.UserID)
+	req.Code = strings.TrimSpace(req.Code)
+	if req.UserID == "" || req.Code == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "user_id and code are required")
+		return
+	}
+
+	user, found := h.Users.Get(req.UserID)
+	if !found || user.TwoFactorCode == "" {
+		writeError(w, http.StatusUnauthorized, "two_factor_not_pending", "no verification code is pending for this account")
+		return
+	}
+
+	if time.Now().After(user.TwoFactorCodeExpires) {
+		user.TwoFactorCode = ""
+		user.TwoFactorCodeExpires = time.Time{}
+		user.TwoFactorAttempts = 0
+		if err := h.Users.Put(user.ID, user); err != nil {
+			log.Printf("failed to clear expired two-factor code for %s: %v", user.ID, err)
+		}
+		writeError(w, http.StatusUnauthorized, "two_factor_code_expired", "verification code has expired, please log in again")
+		return
+	}
+
+	if req.Code != user.TwoFactorCode {
+		user.TwoFactorAttempts++
+		if user.TwoFactorAttempts >= twoFactorMaxAttempts {
+			user.TwoFactorCode = ""
+			user.TwoFactorCodeExpires = time.Time{}
+			user.TwoFactorAttempts = 0
+			if err := h.Users.Put(user.ID, user); err != nil {
+				log.Printf("failed to invalidate two-factor code for %s: %v", user.ID, err)
+			}
+			writeError(w, http.StatusUnauthorized, "two_factor_too_many_attempts", "too many incorrect attempts, please log in again")
+			return
+		}
+		if err := h.Users.Put(user.ID, user); err != nil {
+			log.Printf("failed to persist two-factor attempt count for %s: %v", user.ID, err)
+		}
+		writeError(w, http.StatusUnauthorized, "two_factor_code_incorrect", "incorrect verification code")
+		return
+	}
+
+	user.TwoFactorCode = ""
+	user.TwoFactorCodeExpires = time.Time{}
+	user.TwoFactorAttempts = 0
+	if err := h.Users.Put(user.ID, user); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to update account")
+		return
+	}
+
+	token, err := h.mint(user)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to mint token")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"token": token, "user": user.Public()})
+}
+
+type updateTwoFactorRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// UpdateTwoFactor lets the authenticated caller enable/disable 2FA on their
+// own account - opt-in only, no admin override (see decisions/0011).
+func (h *AuthHandler) UpdateTwoFactor(w http.ResponseWriter, r *http.Request) {
+	ctxUser, ok := middleware.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid token")
+		return
+	}
+	var req updateTwoFactorRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must be valid JSON")
+		return
+	}
+
+	user, found := h.Users.Get(ctxUser.ID)
+	if !found {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "account not found")
+		return
+	}
+	user.TwoFactorEnabled = req.Enabled
+	if !req.Enabled {
+		user.TwoFactorCode = ""
+		user.TwoFactorCodeExpires = time.Time{}
+		user.TwoFactorAttempts = 0
+	}
+	if err := h.Users.Put(user.ID, user); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "failed to update account")
+		return
+	}
+	writeJSON(w, http.StatusOK, user.Public())
 }
 
 func (h *AuthHandler) mint(user models.User) (string, error) {

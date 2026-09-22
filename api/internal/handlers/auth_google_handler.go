@@ -139,6 +139,16 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.TwoFactorEnabled {
+		updated, err := h.issueTwoFactorChallenge(user)
+		if err != nil {
+			fail("google_internal_error")
+			return
+		}
+		http.Redirect(w, r, h.FrontendBaseURL+"/#google_2fa_required="+url.QueryEscape(updated.ID), http.StatusFound)
+		return
+	}
+
 	token, err := h.mint(user)
 	if err != nil {
 		fail("google_internal_error")
