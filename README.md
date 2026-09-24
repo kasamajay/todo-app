@@ -37,6 +37,41 @@ Save it - it is never shown again (though you can always reset it via
 "Forgot password?" on the admin login, since the reset token is logged
 server-side - see below).
 
+## Production mode
+
+Dev mode (above) runs Vite's dev server, which compiles JSX on the fly, plus
+`air` hot-reloading the API. Production mode instead compiles and bundles the
+frontend at image build time and serves it as static files from **nginx** -
+no Node process runs at all:
+
+```
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- Web app: http://localhost:8081
+- Admin panel: http://localhost:8081/admin
+- Stop: `docker compose -f docker-compose.prod.yml down`
+
+```
+browser -> nginx :8081 --+-- /assets/*, index.html  (prebuilt Vite bundle)
+                         +-- /api/*  -> api :8080   (compiled Go binary, not exposed on the host)
+```
+
+- `web/Dockerfile` runs `vite build` in a throwaway `node:20` stage and copies
+  only `dist/` into `nginx:alpine`; `web/nginx.conf` does the `/api` proxy,
+  the `/admin` -> `index.html` fallback, gzip, and caching (hashed
+  `/assets/*` cached forever, `index.html` always revalidated).
+- `api/Dockerfile` builds a static binary onto `alpine` - no Go toolchain or `air`.
+- It runs under its own Compose project (`todo-app-prod`), so the dev stack is
+  untouched, but it **shares `api/data`** with dev - same users and tasks. Don't
+  run both stacks at once (two processes writing the same JSON files).
+- Google sign-in in prod: add `http://localhost:8081/api/auth/google/callback`
+  as an extra Authorized redirect URI in Google Cloud Console. Override the
+  prod URLs with `PROD_GOOGLE_REDIRECT_URI` / `PROD_FRONTEND_BASE_URL` in `.env`.
+- Frontend changes need a rebuild (`--build`) - there is no hot reload.
+
+See [`decisions/0013`](decisions/0013-production-mode-nginx-static-bundle.md).
+
 ## Public access via ngrok
 
 To reach the app from another device, or share it with someone, expose it via [ngrok](https://ngrok.com) (requires `ngrok` installed and authenticated: `ngrok config add-authtoken <token>`):
@@ -45,7 +80,15 @@ To reach the app from another device, or share it with someone, expose it via [n
 .\start.ps1
 ```
 
-This brings the Docker Compose stack up if it isn't already running, tunnels the `web` container's port (5173), and prints a public HTTPS URL. Only that one port needs tunneling — Vite proxies `/api/*` to the `api` container internally, so the same URL serves the whole app, including `<url>/admin`. Ctrl+C stops the tunnel only; the Docker stack keeps running (`docker compose down` to stop that separately). See [`decisions/0009-ngrok-for-public-exposure.md`](decisions/0009-ngrok-for-public-exposure.md).
+To tunnel **production mode** instead (nginx on 8081, rebuilt with `--build` each run):
+
+```
+.\start.ps1 -Prod
+```
+
+The script refuses to start one stack while the other is running, because they share `api/data`, and prints the `down` command to run first. For Google sign-in over a static ngrok domain in prod, set `PROD_GOOGLE_REDIRECT_URI=https://<domain>/api/auth/google/callback` and `PROD_FRONTEND_BASE_URL=https://<domain>` in `.env`. The dev `GOOGLE_REDIRECT_URI`/`FRONTEND_BASE_URL` don't apply to prod, but the callback URL registered in Google Console is the same.
+
+In dev mode, this brings the Docker Compose stack up if it isn't already running, tunnels the `web` container's port (5173), and prints a public HTTPS URL. Only that one port needs tunneling — Vite proxies `/api/*` to the `api` container internally, so the same URL serves the whole app, including `<url>/admin`. Ctrl+C stops the tunnel only; the Docker stack keeps running (`docker compose down` to stop that separately). See [`decisions/0009-ngrok-for-public-exposure.md`](decisions/0009-ngrok-for-public-exposure.md).
 
 ## Sign in with Google (optional)
 
@@ -108,6 +151,9 @@ wrapper you can run directly:
 | `test`           | `docker compose run --rm api go test ./...`         |
 | `build`          | `docker compose build`                              |
 | `down`           | `docker compose down`                               |
+| `prod-build`     | `docker compose -f docker-compose.prod.yml build`   |
+| `prod-up`        | `docker compose -f docker-compose.prod.yml up -d --build` |
+| `prod-down`      | `docker compose -f docker-compose.prod.yml down`    |
 
 ## Project layout
 

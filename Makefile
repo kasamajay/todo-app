@@ -26,4 +26,14 @@ fmt:
 down:
 	docker compose down
 
-.PHONY: install-tools dev-api dev-web dev test build fmt down
+# Production mode: nginx serves the prebuilt bundle, no Node at runtime.
+prod-build:
+	docker compose -f docker-compose.prod.yml build
+
+prod-up:
+	docker compose -f docker-compose.prod.yml up -d --build
+
+prod-down:
+	docker compose -f docker-compose.prod.yml down
+
+.PHONY: install-tools dev-api dev-web dev test build fmt down prod-build prod-up prod-down

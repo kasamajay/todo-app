@@ -1,21 +1,52 @@
 <#
-  Brings up the todo-app Docker Compose stack (if not already running) and
-  exposes it to the internet via an ngrok tunnel on the web container's port
-  (5173) - Vite proxies /api/* to the api container internally, so one
-  tunnel covers the whole app, including /admin. Prints the public URL once
-  ready.
+  Brings up a todo-app Docker Compose stack (if not already running) and
+  exposes it to the internet via an ngrok tunnel on the web container's port,
+  then prints the public URL once ready. One tunnel covers the whole app,
+  including /admin, in either mode:
+
+    dev  (default) - docker-compose.yml, Vite dev server on 5173; Vite
+                     proxies /api/* to the api container.
+    prod (-Prod)   - docker-compose.prod.yml, nginx on 8081 serving the
+                     prebuilt bundle; nginx proxies /api/* to the api
+                     container (see decisions/0013). Rebuilt with --build on
+                     each run, since prod has no hot reload.
+
+  The two stacks share api/data, so this refuses to start one while the
+  other is running.
 
   Unlike a plain background process, the Docker stack is this project's
-  normal persistent dev environment (see decisions/0001, the
+  normal persistent environment (see decisions/0001, the
   docker-dev-workflow skill) - so Ctrl+C here only stops the ngrok tunnel,
-  not the containers. Run `docker compose down` separately to stop the stack.
+  not the containers. Run the printed `docker compose ... down` separately
+  to stop the stack.
 
-  Usage:  .\start.ps1
+  Usage:  .\start.ps1          (dev)
+          .\start.ps1 -Prod    (production)
   Stop:   Ctrl+C (stops the tunnel only)
 #>
 
+param(
+    [switch]$Prod
+)
+
 $root = $PSScriptRoot
-$port = 5173
+
+if ($Prod) {
+    $modeLabel = "production (nginx)"
+    $port = 8081
+    $composeArgs = @("-f", "docker-compose.prod.yml")
+    $otherComposeArgs = @()
+    $otherLabel = "dev"
+} else {
+    $modeLabel = "dev (Vite)"
+    $port = 5173
+    $composeArgs = @()
+    $otherComposeArgs = @("-f", "docker-compose.prod.yml")
+    $otherLabel = "production"
+}
+# The same compose args as a string, for the copy-pasteable hints printed below.
+$composeHint = if ($composeArgs.Count) { "docker compose " + ($composeArgs -join " ") } else { "docker compose" }
+$otherComposeHint = if ($otherComposeArgs.Count) { "docker compose " + ($otherComposeArgs -join " ") } else { "docker compose" }
 
 $ngrokCmd = Get-Command ngrok -ErrorAction SilentlyContinue
 if (-not $ngrokCmd) {
@@ -32,10 +63,21 @@ if (-not $dockerCmd) {
 
 Push-Location $root
 try {
-    Write-Host "Ensuring the Docker Compose stack is up..." -ForegroundColor Cyan
-    docker compose up -d
+    # Dev and prod both bind-mount api/data, and the JSON store assumes a
+    # single writer process - don't bring one up while the other is running.
+    $otherRunning = docker compose @otherComposeArgs ps -q --status running
+    if ($LASTEXITCODE -eq 0 -and $otherRunning) {
+        Write-Host "The $otherLabel stack is already running, and it shares api/data with the $modeLabel stack." -ForegroundColor Red
+        Write-Host "Stop it first with:  $otherComposeHint down" -ForegroundColor Yellow
+        exit 1
+    }
+
+    Write-Host "Ensuring the $modeLabel Docker Compose stack is up..." -ForegroundColor Cyan
+    $upArgs = @("up", "-d")
+    if ($Prod) { $upArgs += "--build" }
+    docker compose @composeArgs @upArgs
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "docker compose up failed - see output above." -ForegroundColor Red
+        Write-Host "$composeHint up failed - see output above." -ForegroundColor Red
         exit 1
     }
 }
@@ -56,7 +98,7 @@ for ($i = 0; $i -lt 30; $i++) {
 }
 if (-not $appReady) {
     Write-Host "Timed out waiting for the web container to respond on port $port." -ForegroundColor Yellow
-    Write-Host "Check 'docker compose logs web' - continuing to start the tunnel anyway." -ForegroundColor Yellow
+    Write-Host "Check '$composeHint logs web' - continuing to start the tunnel anyway." -ForegroundColor Yellow
 }
 
 # NGROK_DOMAIN (optional, set in .env) pins the tunnel to a reserved static
@@ -97,15 +139,19 @@ try {
 
     Write-Host ""
     if ($publicUrl) {
+        Write-Host "Mode:                 $modeLabel" -ForegroundColor Green
         Write-Host "Todo App is live at:  $publicUrl" -ForegroundColor Green
         Write-Host "Admin panel:          $publicUrl/admin" -ForegroundColor Green
+        if ($Prod -and $ngrokDomain -and -not (Select-String -Path $envPath -Pattern '^PROD_FRONTEND_BASE_URL=' -Quiet)) {
+            Write-Host "Google sign-in over this domain in prod needs PROD_GOOGLE_REDIRECT_URI / PROD_FRONTEND_BASE_URL in .env (see README)." -ForegroundColor DarkGray
+        }
     } else {
         Write-Host "ngrok started but the public URL wasn't detected yet." -ForegroundColor Yellow
         Write-Host "Check http://127.0.0.1:4040 in a browser for the tunnel status." -ForegroundColor Yellow
     }
     Write-Host "Local copy:           http://localhost:$port"
     Write-Host ""
-    Write-Host "First run? The admin@todo.io password is in: docker compose logs api"
+    Write-Host "First run? The admin@todo.io password is in: $composeHint logs api"
     Write-Host "First browser visit shows ngrok's own warning interstitial - click 'Visit Site' to continue."
     Write-Host ""
     Write-Host "Press Ctrl+C to stop the tunnel (the Docker stack keeps running)." -ForegroundColor Yellow
@@ -116,5 +162,5 @@ finally {
     Write-Host ""
     Write-Host "Stopping ngrok tunnel..." -ForegroundColor Cyan
     if ($ngrokProc -and -not $ngrokProc.HasExited) { Stop-Process -Id $ngrokProc.Id -Force -ErrorAction SilentlyContinue }
-    Write-Host "The Docker Compose stack is still running - 'docker compose down' to stop it." -ForegroundColor Cyan
+    Write-Host "The $modeLabel Docker Compose stack is still running - '$composeHint down' to stop it." -ForegroundColor Cyan
 }

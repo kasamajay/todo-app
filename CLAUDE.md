@@ -20,6 +20,13 @@ docker compose logs api                               # includes the admin boots
 .\start.ps1                                           # brings the stack up + tunnels web :5173 via ngrok (public URL)
 ```
 
+Production mode (nginx serves the prebuilt Vite bundle on :8081, compiled api binary, no Node at runtime):
+```
+docker compose -f docker-compose.prod.yml up -d --build   # http://localhost:8081
+docker compose -f docker-compose.prod.yml down
+.\start.ps1 -Prod                                         # same as start.ps1 but builds/ups prod + tunnels :8081; refuses if the other stack is running
+```
+
 Backend build/test/vet (no native Go needed):
 ```
 docker compose run --rm api go build ./...
@@ -45,6 +52,8 @@ Never commit directly to `main`. For any change: create a branch, make and verif
 
 ### Docker layer
 Two services wired by `docker-compose.yml`: `api` (`golang:1.22`, running `air` for hot reload per `api/.air.toml`) and `web` (`node:20`, running Vite's dev server directly via `node node_modules/vite/bin/vite.js`, **not** `npm run dev` — that wrapper was found to exit immediately in this container context). Both watchers use polling (`poll = true` in `.air.toml`, `usePolling: true` in `vite.config.js`) because Docker Desktop's Windows bind mount doesn't propagate native filesystem change events. `api/data` is bind-mounted to the host so JSON storage, the HMAC signing secret, and uploaded attachment blobs persist across restarts. The browser only ever talks to `localhost:5173`; Vite proxies `/api/*` to `http://api:8080` (Docker's service-name DNS — not `localhost`, since Vite runs *inside* the `web` container).
+
+Production mode is a separate `docker-compose.prod.yml` (Compose project `todo-app-prod`): `web/Dockerfile` runs `vite build` in a throwaway `node:20` stage and ships only `dist/` in `nginx:alpine`, with `web/nginx.conf` taking over the dev proxy's job (`/api/` → `http://api:8080`) plus the `/admin` → `index.html` fallback that `main.jsx`'s pathname check needs, gzip, caching, and `client_max_body_size 11m` for the 10MB attachment cap. `api/Dockerfile` builds a static binary onto `alpine` (CA certs for Google OAuth). The api isn't published on the host in prod; nginx on host port 8081 is the only entry point. It shares `api/data` with dev, so don't run both stacks at once. Prod Google URLs come from `PROD_GOOGLE_REDIRECT_URI` / `PROD_FRONTEND_BASE_URL` (default `http://localhost:8081/...`) so dev's `.env` values don't leak in.
 
 ### Backend (`api/`, module `todo-app`, stdlib only — zero entries in `go.mod`)
 - `cmd/api/main.go` — entrypoint: loads all four JSON stores, loads/creates the HMAC secret, bootstraps the `admin@todo.io` account on an empty user store, builds the route table on Go 1.22's `http.ServeMux` (method + `{id}`-style wildcard patterns), wraps it in logging/recover middleware, listens on `:8080`.

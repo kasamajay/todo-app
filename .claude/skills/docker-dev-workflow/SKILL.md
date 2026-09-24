@@ -50,6 +50,7 @@ docker compose down
 
 ```
 .\start.ps1          # brings the stack up if needed, tunnels web :5173, prints the public URL
+.\start.ps1 -Prod    # same for production mode (nginx :8081, rebuilt with --build)
 ```
 
 Only the `web` container needs tunneling — Vite proxies `/api/*` to `api` internally, so one URL covers the whole app including `/admin`. Ctrl+C stops only the tunnel, not the Docker stack (`docker compose down` separately for that). See `../../../decisions/0009-ngrok-for-public-exposure.md`.
