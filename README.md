@@ -80,7 +80,15 @@ To reach the app from another device, or share it with someone, expose it via [n
 .\start.ps1
 ```
 
-This brings the Docker Compose stack up if it isn't already running, tunnels the `web` container's port (5173), and prints a public HTTPS URL. Only that one port needs tunneling — Vite proxies `/api/*` to the `api` container internally, so the same URL serves the whole app, including `<url>/admin`. Ctrl+C stops the tunnel only; the Docker stack keeps running (`docker compose down` to stop that separately). See [`decisions/0009-ngrok-for-public-exposure.md`](decisions/0009-ngrok-for-public-exposure.md).
+To tunnel **production mode** instead (nginx on 8081, rebuilt with `--build` each run):
+
+```
+.\start.ps1 -Prod
+```
+
+The script refuses to start one stack while the other is running, because they share `api/data`, and prints the `down` command to run first. For Google sign-in over a static ngrok domain in prod, set `PROD_GOOGLE_REDIRECT_URI=https://<domain>/api/auth/google/callback` and `PROD_FRONTEND_BASE_URL=https://<domain>` in `.env`. The dev `GOOGLE_REDIRECT_URI`/`FRONTEND_BASE_URL` don't apply to prod, but the callback URL registered in Google Console is the same.
+
+In dev mode, this brings the Docker Compose stack up if it isn't already running, tunnels the `web` container's port (5173), and prints a public HTTPS URL. Only that one port needs tunneling — Vite proxies `/api/*` to the `api` container internally, so the same URL serves the whole app, including `<url>/admin`. Ctrl+C stops the tunnel only; the Docker stack keeps running (`docker compose down` to stop that separately). See [`decisions/0009-ngrok-for-public-exposure.md`](decisions/0009-ngrok-for-public-exposure.md).
 
 ## Sign in with Google (optional)
 

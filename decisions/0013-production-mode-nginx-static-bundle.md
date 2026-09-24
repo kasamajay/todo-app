@@ -23,5 +23,5 @@ Add a separate `docker-compose.prod.yml` (Compose project `todo-app-prod`) along
 - Prod and dev share the `api/data` bind mount (same users/boards/tasks). The JSON store assumes a single writer process, so the two stacks must not run at the same time.
 - Frontend changes in prod need `docker compose -f docker-compose.prod.yml up -d --build`; there's no hot reload by design.
 - Google sign-in in prod needs `http://localhost:8081/api/auth/google/callback` registered in Google Cloud Console (one-time).
-- `start.ps1` / ngrok (decisions/0009, 0012) still target the dev stack on 5173; tunnelling prod would mean pointing ngrok at 8081.
+- `start.ps1` gained a `-Prod` switch: it runs `docker compose -f docker-compose.prod.yml up -d --build` and tunnels 8081 instead of 5173, using the same `NGROK_DOMAIN` handling as decisions/0012. nginx's `server_name _` accepts ngrok's Host header, so no equivalent of Vite's `allowedHosts` is needed. Because of the shared `api/data`, the script refuses to start either stack while the other is running and prints the `down` command instead of stopping it itself.
 - Resulting images: web ≈ 48MB (nginx + 177kB JS bundle, 55kB gzipped), api ≈ 15MB.

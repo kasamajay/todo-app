@@ -24,6 +24,7 @@ Production mode (nginx serves the prebuilt Vite bundle on :8081, compiled api bi
 ```
 docker compose -f docker-compose.prod.yml up -d --build   # http://localhost:8081
 docker compose -f docker-compose.prod.yml down
+.\start.ps1 -Prod                                         # same as start.ps1 but builds/ups prod + tunnels :8081; refuses if the other stack is running
 ```
 
 Backend build/test/vet (no native Go needed):
