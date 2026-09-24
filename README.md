@@ -70,7 +70,9 @@ browser -> nginx :8081 --+-- /assets/*, index.html  (prebuilt Vite bundle)
   prod URLs with `PROD_GOOGLE_REDIRECT_URI` / `PROD_FRONTEND_BASE_URL` in `.env`.
 - Frontend changes need a rebuild (`--build`) - there is no hot reload.
 
-See [`decisions/0013`](decisions/0013-production-mode-nginx-static-bundle.md).
+See [`decisions/0013`](decisions/0013-production-mode-nginx-static-bundle.md), and
+[`diagrams/dev-vs-prod-serving.md`](diagrams/dev-vs-prod-serving.md) for a
+walkthrough of how each mode serves the frontend.
 
 ## Public access via ngrok
 
@@ -170,7 +172,7 @@ See inline package docs in `api/internal/*` for line-level architecture details.
 ## Documentation
 
 - [`decisions/`](decisions/README.md) - architecture decision records: why Docker-only dev, why hand-rolled PBKDF2, why custom HMAC tokens, why cascading deletes, etc.
-- [`diagrams/`](diagrams/README.md) - system architecture, auth request sequence, and data model diagrams (Mermaid `.md` + one interactive `system-architecture.html`).
+- [`diagrams/`](diagrams/README.md) - system architecture, auth request sequence, and data model diagrams (Mermaid `.md` + one interactive `system-architecture.html`), plus [dev vs production serving](diagrams/dev-vs-prod-serving.md): on-demand JSX compilation and the HMR WebSocket vs the nginx static bundle and `/api` proxy.
 - [`features/`](features/README.md) - what each feature area does: authentication, boards, tasks/kanban, attachments, admin panel.
 
 ## API
