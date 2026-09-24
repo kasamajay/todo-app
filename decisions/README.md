@@ -16,6 +16,7 @@ Lightweight architecture decision records (ADRs) for this project. Each file cap
 | [0010](0010-google-oauth-authorization-code-flow.md) | Google OAuth via the Authorization Code flow, not ID-token verification |
 | [0011](0011-opt-in-email-code-two-factor-auth.md) | Opt-in two-factor authentication via a logged 6-digit email code |
 | [0012](0012-optional-ngrok-static-domain-for-google-oauth.md) | Optional ngrok static domain for stable Google OAuth redirects |
+| [0013](0013-production-mode-nginx-static-bundle.md) | Production mode: nginx serves a prebuilt Vite bundle, no Node at runtime |
 
 To add a new one: copy the format below into a new numbered file and add a row to the table above.
 
